@@ -35,15 +35,15 @@
 EventGroupHandle_t wifi_event_group;
 static const char *TAG = "DB_ESP32";
 
-uint8_t DEFAULT_SSID[32] = "DroneBridge ESP32";
-uint8_t DEFAULT_PWD[64] = "dronebridge";
+uint8_t DEFAULT_SSID[32] = "Vimdrones Debug Hotspot";
+uint8_t DEFAULT_PWD[64] = "vimdrones";
 uint8_t DEFAULT_CHANNEL = 6;
-uint8_t SERIAL_PROTOCOL = 2;  // 1,2=MSP, 3,4,5=MAVLink/transparent
-uint8_t DB_UART_PIN_TX = GPIO_NUM_17;
-uint8_t DB_UART_PIN_RX = GPIO_NUM_16;
+uint8_t SERIAL_PROTOCOL = 3;  // 1,2=MSP, 3,4,5=MAVLink/transparent
+uint8_t DB_UART_PIN_TX = GPIO_NUM_27;
+uint8_t DB_UART_PIN_RX = GPIO_NUM_26;
 uint32_t DB_UART_BAUD_RATE = 115200;
-uint16_t TRANSPARENT_BUF_SIZE = 64;
-uint8_t LTM_FRAME_NUM_BUFFER = 1;
+uint16_t TRANSPARENT_BUF_SIZE = 32;
+uint8_t LTM_FRAME_NUM_BUFFER = 2;
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -87,6 +87,36 @@ void start_mdns_service()
     ESP_ERROR_CHECK(mdns_service_add(NULL, "_db_proxy", "_tcp", APP_PORT_PROXY, NULL, 0));
     ESP_ERROR_CHECK(mdns_service_add(NULL, "_db_comm", "_tcp", APP_PORT_COMM, NULL, 0));
     ESP_ERROR_CHECK(mdns_service_instance_name_set("_http", "_tcp", "DroneBridge for ESP32"));
+}
+
+void init_board() {
+  //set rc bind
+  printf("init board...\n");
+  gpio_config_t rc_pair_io_conf;
+  rc_pair_io_conf.intr_type = GPIO_INTR_DISABLE;
+  rc_pair_io_conf.mode = GPIO_MODE_OUTPUT;
+  rc_pair_io_conf.pin_bit_mask =  ((1ULL<<GPIO_NUM_12));
+  rc_pair_io_conf.pull_up_en = 1;
+  rc_pair_io_conf.pull_down_en = 1;
+  gpio_config(&rc_pair_io_conf);
+
+  //set rc power
+  gpio_config_t rc_power_io_conf;
+  rc_power_io_conf.intr_type = GPIO_INTR_DISABLE;
+  rc_power_io_conf.mode = GPIO_MODE_OUTPUT;
+  rc_power_io_conf.pin_bit_mask =  ((1ULL<<GPIO_NUM_14));
+  rc_power_io_conf.pull_up_en = 1;
+  rc_power_io_conf.pull_down_en = 1;
+  gpio_config(&rc_power_io_conf);
+
+  vTaskDelay(1000);
+
+  printf("rc off\n");
+  gpio_set_level(GPIO_NUM_14, 1);
+  gpio_set_level(GPIO_NUM_12, 1);
+  vTaskDelay(50);
+  printf("rc on\n");
+  gpio_set_level(GPIO_NUM_14, 0);
 }
 
 
@@ -165,6 +195,7 @@ void read_settings_nvs(){
 
 void app_main()
 {
+    init_board();
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
